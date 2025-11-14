@@ -2,6 +2,8 @@
 from graph.state import GraphState
 from graph.router import get_router_chain
 from graph.planner import get_planner_chain
+from graph.retriever import retrieve_products
+from graph.answerer import get_answerer_chain
 import logging
 
 logger = logging.getLogger(__name__)
@@ -91,21 +93,20 @@ def planner_node(state: GraphState) -> GraphState:
     
     return state
 
-
 def retriever_node(state: GraphState) -> GraphState:
-    """Retrieve products from private RAG"""
+    """Retrieve products from private RAG using plan filters"""
     
     try:
-        from graph.retriever import retrieve_products
-        
         plan = state["plan"]
         query = state["query"]
         
-        # Extract from plan
+        # Extract retrieval parameters from plan
         filters = plan.get("filters", {})
         retrieval_fields = plan.get("retrieval_fields", [])
         
-        # Retrieve
+        logger.info(f"Retrieving with filters: {filters}")
+        
+        # Retrieve documents
         docs = retrieve_products(
             query=query,
             filters=filters,
@@ -113,11 +114,20 @@ def retriever_node(state: GraphState) -> GraphState:
             k=5
         )
         
+        # Update state
         state["retrieved_docs"] = docs
+        
+        # Log
         state["step_log"].append({
             "node": "retriever",
             "input": {"query": query, "filters": filters},
-            "output": {"num_docs": len(docs)},
+            "output": {
+                "num_docs": len(docs),
+                "top_results": [
+                    {"title": d["title"], "price": d["price"]} 
+                    for d in docs[:3]
+                ]
+            },
             "success": True
         })
         
@@ -126,6 +136,65 @@ def retriever_node(state: GraphState) -> GraphState:
         state["retrieved_docs"] = []
         state["step_log"].append({
             "node": "retriever",
+            "error": str(e),
+            "success": False
+        })
+    
+    return state
+
+def answerer_node(state: GraphState) -> GraphState:
+    """Synthesize final answer from retrieved documents"""
+    
+    try:
+        # Check if we have docs
+        if not state.get("retrieved_docs"):
+            state["answer"] = "I couldn't find any products matching your criteria. Try adjusting your search."
+            state["citations"] = []
+            state["step_log"].append({
+                "node": "answerer",
+                "output": {"answer": state["answer"]},
+                "success": True
+            })
+            return state
+        
+        # Use the chain
+        answerer_chain = get_answerer_chain()
+        
+        # Invoke chain
+        result = answerer_chain.invoke(state)
+        
+        # Update state
+        state["answer"] = result["answer"]
+        state["citations"] = result["citations"]
+        
+        # Log
+        state["step_log"].append({
+            "node": "answerer",
+            "input": {
+                "query": state["query"],
+                "num_docs": len(state["retrieved_docs"])
+            },
+            "output": {
+                "answer": result["answer"][:100] + "...",
+                "citations": result["citations"]
+            },
+            "success": True
+        })
+        
+    except Exception as e:
+        logger.error(f"Answerer error: {e}", exc_info=True)
+        
+        # Fallback: simple summary
+        docs = state.get("retrieved_docs", [])
+        if docs:
+            state["answer"] = f"Found {len(docs)} products. Top result: {docs[0]['title']} at ${docs[0]['price']:.2f}"
+            state["citations"] = ["DOC 1"]
+        else:
+            state["answer"] = "No products found."
+            state["citations"] = []
+        
+        state["step_log"].append({
+            "node": "answerer",
             "error": str(e),
             "success": False
         })

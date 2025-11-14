@@ -23,4 +23,5 @@ class GraphState(TypedDict):
     citations: List[str]
     
     # Logging
-    step_log: Annotated[List[dict], operator.add]  # Accumulate logs
+    # step_log: Annotated[List[dict], operator.add]  # Accumulate logs
+    step_log: List[dict] 
