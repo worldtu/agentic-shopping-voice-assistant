@@ -1,3 +1,7 @@
+"""
+Private RAG retrieval logic (FAISS + SentenceTransformer + Groq Llama3)
+Supports auto-download embeddings from Google Drive & user-provided API key.
+"""
 
 import os
 import json
@@ -157,7 +161,7 @@ def _safe_json_parse(text):
 # ===============================
 # 5️⃣ Retrieval
 # ===============================
-def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
+def retrieve_from_rag_0(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     vs = get_vector_store()
     df, index, model = vs["df"], vs["index"], vs["model"]
 
@@ -207,7 +211,7 @@ def _format_result(row, score):
 # ===============================
 # 6️⃣ Unified Pipeline
 # ===============================
-def rag_with_auto_filter(user_query: str, k: int = 20) -> List[Dict]:
+def retrieve_from_rag(user_query: str, k: int = 20) -> List[Dict]:
     filters = extract_filters_from_text(user_query)
-    results = retrieve_from_rag(user_query, filters, k)
+    results = retrieve_from_rag_0(user_query, filters, k)
     return results
