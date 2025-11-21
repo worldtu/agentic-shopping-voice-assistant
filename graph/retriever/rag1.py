@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 # ===============================
 # 🔹 Environment Setup
 # ===============================
-load_dotenv()
+load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger(__name__)
 
 _vector_store = None
