@@ -232,10 +232,6 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
 
 
 
-
-    
-
-
 def _format_result(row, score):
     return {
         "doc_id": row.get("uniq_id"),
@@ -254,6 +250,7 @@ def _format_result(row, score):
 # 6️⃣ Unified Pipeline
 # ===============================
 def rag_with_auto_filter(user_query: str, k: int = 20) -> List[Dict]:
+    print(f"[DEBUG] 🚀 rag_with_auto_filter triggered with query: {user_query}")
     filters = extract_filters_from_text(user_query)
     results = retrieve_from_rag(user_query, filters, k)
     return results
