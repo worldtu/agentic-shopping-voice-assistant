@@ -191,7 +191,17 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     if not filtered:
         for idx, score in zip(indices[:k], scores[:k]):
             filtered.append(_format_result(df.iloc[idx], score))
+        # Debugging and confirmation prints
+    
+    print(f"[DEBUG] Dataset found: {os.path.exists(DATA_PATH)} ({DATA_PATH})")
+    print(f"[DEBUG] Retrieved {len(filtered)} items for query: '{query}' with filters: {filters}")
+    if len(filtered) > 0:
+        print(f"✅ Successfully retrieved {len(filtered)} results.")
+    else:
+        print("⚠️ No matching results found. Check filters or data content.")
     return filtered
+
+    
 
 
 def _format_result(row, score):
