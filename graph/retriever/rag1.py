@@ -27,8 +27,6 @@ _df = None
 _index = None
 GROQ_API_KEY = None  # will be set dynamically by setup_env()
 
-
-
 DATA_PATH = os.getenv("DATA_PATH", "./data_cleaned.csv")
 EMB_PATH = "./text_emb.pt"
 EMB_DRIVE_ID = os.getenv("EMB_DRIVE_ID")
@@ -62,6 +60,7 @@ def setup_env(GROQ_API_KEY: str = None):
     else:
         logger.info("[Setup] Embedding already cached locally.")
 
+
 # ===============================
 # 2️⃣ Download from Google Drive
 # ===============================
@@ -74,6 +73,7 @@ def _download_embedding_from_drive():
     gdown.download(url, EMB_PATH, quiet=False)
     logger.info(f"[Download] Saved to {EMB_PATH}")
 
+
 def _download_data_from_drive():
     import gdown
     if not DATA_DRIVE_ID:
@@ -83,6 +83,7 @@ def _download_data_from_drive():
     logger.info(f"[Download] Downloading dataset from {url} ...")
     gdown.download(url, DATA_PATH, quiet=False)
     logger.info(f"[Download] Saved to {DATA_PATH}")
+
 
 # ===============================
 # 3️⃣ Load Vector Store
@@ -141,13 +142,12 @@ Return only valid JSON."""
         res = requests.post(GROQ_ENDPOINT, headers=headers, json=payload).json()
         print("[DEBUG] Groq API raw response:", res)
         text = res["choices"][0]["message"]["content"].strip()
-        print("[DEBUG] Parsed filters:", _safe_json_parse(text))  # 👈 输出解析结果
+        print("[DEBUG] Parsed filters:", _safe_json_parse(text))
         return _safe_json_parse(text)
 
     except Exception as e:
         logger.warning(f"[Groq] Filter extraction failed: {e}")
         return {}
-        
 
 
 def _safe_json_parse(text):
@@ -167,7 +167,7 @@ def _safe_json_parse(text):
 # 5️⃣ Retrieval
 # ===============================
 def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
-    """Retrieve top-k documents from FAISS index with filter constraints"""
+    """Retrieve top-k documents from FAISS index with filter constraints."""
     vs = get_vector_store()
     df, index, model = vs["df"], vs["index"], vs["model"]
 
@@ -179,13 +179,13 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     for idx, score in zip(indices, scores):
         row = df.iloc[idx]
 
-        # ✅ Category filter
+        # Category filter
         if "category" in filters and pd.notna(row.get("category", None)):
             query_cat = str(filters["category"]).lower()
             if query_cat not in str(row["category"]).lower():
                 continue
 
-        # ✅ Price filter (during loop)
+        # Price filter (inside loop)
         try:
             price = float(row.get("selling_price", 0))
             if "min_price" in filters and price < float(filters["min_price"]):
@@ -199,16 +199,15 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
         if len(filtered) >= k:
             break
 
-    # ✅ Fallback: if no results, return top semantic matches
+    # Fallback: if no strict filter matches, return top semantic matches
     if not filtered:
         print("[DEBUG] No strict matches found — returning top semantic results (may include out-of-range prices)")
         fallback = [_format_result(df.iloc[idx], score) for idx, score in zip(indices[:k], scores[:k])]
-        # Fallback 也做一次价格过滤
         if "max_price" in filters:
             fallback = [f for f in fallback if f.get("price", 0) <= float(filters["max_price"])]
         filtered = fallback
 
-    # ✅ Debug logs
+    # Debug logs
     print(f"[DEBUG] Dataset found: {os.path.exists(DATA_PATH)} ({DATA_PATH})")
     print(f"[DEBUG] Retrieved {len(filtered)} items for query: '{query}' with filters: {filters}")
 
@@ -217,7 +216,7 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     else:
         print("⚠️ No matching results found. Check filters or data content.")
 
-    # ✅ Final strict price filter to guarantee correctness
+    # Final strict price filter to guarantee correctness
     if "max_price" in filters:
         try:
             max_p = float(filters["max_price"])
@@ -231,8 +230,25 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     return filtered
 
 
-
 def _format_result(row, score):
+    """
+    Normalize one row into the standard product dict schema.
+
+    This matches what MCP rag.search + LangGraph answerer expect:
+    - doc_id: unique id for citation
+    - title: product name
+    - price: numeric price
+    - category / brand / material: metadata
+    - ingredients / rating: optional but helpful for recommendations
+    - content: rich text description
+    - source: always "rag"
+    """
+    # Safe rating extraction
+    try:
+        rating_val = float(row["rating"]) if "rating" in row and pd.notna(row["rating"]) else None
+    except Exception:
+        rating_val = None
+
     return {
         "doc_id": row.get("uniq_id"),
         "title": row.get("product_name"),
@@ -240,6 +256,8 @@ def _format_result(row, score):
         "category": row.get("category", ""),
         "brand": row.get("brand", ""),
         "material": row.get("material", ""),
+        "ingredients": row.get("ingredients", ""),  # if column missing, returns ""
+        "rating": rating_val,
         "content": row.get("rich_description", ""),
         "score": float(score),
         "source": "rag",
@@ -250,7 +268,26 @@ def _format_result(row, score):
 # 6️⃣ Unified Pipeline
 # ===============================
 def rag_with_auto_filter(user_query: str, k: int = 20) -> List[Dict]:
+    """
+    Convenience pipeline:
+    - Use Groq to extract filters from natural language query
+    - Then run filtered retrieval.
+    """
     print(f"[DEBUG] 🚀 rag_with_auto_filter triggered with query: {user_query}")
     filters = extract_filters_from_text(user_query)
     results = retrieve_from_rag(user_query, filters, k)
     return results
+
+
+def rag_search(query: str, filters: Dict = None, k: int = 20) -> List[Dict]:
+    """
+    Unified interface for LangGraph and MCP:
+
+    - If filters is provided:
+        Use explicit filters from planner / caller.
+    - If filters is None:
+        Auto-extract filters from the query using Groq.
+    """
+    if filters:
+        return retrieve_from_rag(query, filters, k)
+    return rag_with_auto_filter(query, k)
