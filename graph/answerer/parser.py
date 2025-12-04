@@ -8,7 +8,7 @@ def parse_answer_with_citations(text: str) -> Dict:
     
     Returns:
         {
-            "answer": str,  # Clean answer text
+            "answer": str,  # Clean answer text without any [DOC X] markers
             "citations": List[str]  # List of doc IDs cited
         }
     """
@@ -28,12 +28,19 @@ def parse_answer_with_citations(text: str) -> Dict:
         # Remove citation line from answer
         text = text[:citation_match.start()].strip()
     
-    # Also find inline citations in answer
+    # Also find any inline citations in answer (for tracking)
     inline_citations = re.findall(r'\[DOC\s+(\d+)\]', text)
     for ref in inline_citations:
         doc_id = f"DOC {ref}"
         if doc_id not in citations:
             citations.append(doc_id)
+    
+    # REMOVE all inline [DOC X] citations from the answer text
+    # This ensures the conversational answer is clean and readable
+    text = re.sub(r'\s*\[DOC\s+\d+\]\s*', ' ', text)
+    
+    # Clean up any double spaces created by removal
+    text = re.sub(r'\s+', ' ', text).strip()
     
     return {
         "answer": text,

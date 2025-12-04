@@ -54,9 +54,12 @@ TASK DEFINITIONS (choose exactly one):
    Keywords: "recommend", "suggest", "what's the best", "top rated", "should I buy"
    Example: "recommend the best vegan soap"
 
-4. availability_check - User wants to know if product is IN STOCK or available NOW
-   Keywords: "available", "in stock", "can I buy", "is there", "do you have"
-   Example: "is organic shampoo available now?"
+4. availability_check - User wants to know if product is IN STOCK or available NOW, or wants CURRENT/LATEST pricing
+   Keywords: "available", "in stock", "can I buy", "is there", "do you have", "current", "latest", "now", "today", "current price", "latest price"
+   Examples: 
+   - "is organic shampoo available now?"
+   - "what's the current price of a pen?"
+   - "find me the latest price of coffee"
 
 PRICE EXTRACTION RULES (FOLLOW EXACTLY):
 
@@ -121,6 +124,12 @@ JSON:{{"task": "product_search", "constraints": {{"product": "watch", "min_price
 
 Query: "affordable Nike running shoes"
 JSON:{{"task": "product_search", "constraints": {{"product": "shoes", "min_price": null, "max_price": 15, "brand": ["Nike"], "material": null}}, "safety_flags": []}}
+
+Query: "find me the current price of a pen"
+JSON:{{"task": "availability_check", "constraints": {{"product": "pen", "min_price": null, "max_price": null, "material": null, "brand": []}}, "safety_flags": []}}
+
+Query: "what's the latest price of organic coffee"
+JSON:{{"task": "availability_check", "constraints": {{"product": "coffee", "min_price": null, "max_price": null, "material": "organic", "brand": []}}, "safety_flags": []}}
 
 Now extract from this query:
 Query: {query}<|im_end|>

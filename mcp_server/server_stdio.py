@@ -29,16 +29,112 @@ async def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
     elif tool == "rag.search":
         result = await rag_search(**args)
     elif tool == "tools.list":
-        # Simple discovery endpoint
+        # MCP tool discovery endpoint with full JSON schemas
         result = {
             "tools": [
                 {
                     "name": "web.search",
-                    "description": "Live web search over product pages",
+                    "description": "Live web search over product pages using Serper API. Supports both general search and shopping-specific search.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query text"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "description": "Maximum number of results to return (default: 5)",
+                                "default": 5
+                            },
+                            "site_filter": {
+                                "type": "string",
+                                "description": "Optional site restriction (e.g. 'site:amazon.com')",
+                                "optional": True
+                            },
+                            "search_type": {
+                                "type": "string",
+                                "enum": ["search", "shopping"],
+                                "description": "Type of search: 'search' for general, 'shopping' for products (default: 'search')",
+                                "default": "search"
+                            }
+                        },
+                        "required": ["query"]
+                    },
+                    "outputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {"type": "string"},
+                                        "url": {"type": "string"},
+                                        "snippet": {"type": "string"},
+                                        "price": {"type": ["number", "null"]},
+                                        "availability": {"type": ["string", "null"]},
+                                        "source": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
                 },
                 {
                     "name": "rag.search",
-                    "description": "Private Amazon 2020 vector search",
+                    "description": "Private vector search over Amazon 2020 product catalog using FAISS. Returns structured product data with ratings, prices, and metadata.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query text"
+                            },
+                            "k": {
+                                "type": "integer",
+                                "description": "Number of products to retrieve (default: 10)",
+                                "default": 10
+                            },
+                            "filters": {
+                                "type": "object",
+                                "description": "Optional filters (e.g., {'max_price': 50, 'category': 'Electronics'})",
+                                "optional": True,
+                                "properties": {
+                                    "max_price": {"type": "number"},
+                                    "min_price": {"type": "number"},
+                                    "category": {"type": "string"},
+                                    "brand": {"type": "string"},
+                                    "material": {"type": "string"}
+                                }
+                            }
+                        },
+                        "required": ["query"]
+                    },
+                    "outputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "doc_id": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "price": {"type": "number"},
+                                        "rating": {"type": "number"},
+                                        "brand": {"type": "string"},
+                                        "material": {"type": "string"},
+                                        "category": {"type": "string"},
+                                        "ingredients": {"type": "string"},
+                                        "content": {"type": "string"},
+                                        "score": {"type": "number"},
+                                        "source": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
                 },
             ]
         }

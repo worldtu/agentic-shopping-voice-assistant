@@ -163,6 +163,27 @@ def _safe_json_parse(text):
     return {}
 
 
+def _parse_price_value(value):
+    """Convert planner price strings like '19.99', '$20', or None into floats."""
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        cleaned = cleaned.replace("$", "").replace(",", "")
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 # ===============================
 # 5️⃣ Retrieval
 # ===============================
@@ -174,6 +195,9 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     q_emb = model.encode([query], normalize_embeddings=True).astype("float32")
     scores, indices = index.search(q_emb, k * 5)
     indices, scores = indices[0], scores[0]
+
+    min_price_filter = _parse_price_value(filters.get("min_price")) if filters else None
+    max_price_filter = _parse_price_value(filters.get("max_price")) if filters else None
 
     filtered = []
     for idx, score in zip(indices, scores):
@@ -188,11 +212,12 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
         # Price filter (inside loop)
         try:
             price = float(row.get("selling_price", 0))
-            if "min_price" in filters and price < float(filters["min_price"]):
-                continue
-            if "max_price" in filters and price > float(filters["max_price"]):
-                continue
         except Exception:
+            continue
+
+        if min_price_filter is not None and price < min_price_filter:
+            continue
+        if max_price_filter is not None and price > max_price_filter:
             continue
 
         filtered.append(_format_result(row, score))
@@ -203,8 +228,11 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
     if not filtered:
         print("[DEBUG] No strict matches found — returning top semantic results (may include out-of-range prices)")
         fallback = [_format_result(df.iloc[idx], score) for idx, score in zip(indices[:k], scores[:k])]
-        if "max_price" in filters:
-            fallback = [f for f in fallback if f.get("price", 0) <= float(filters["max_price"])]
+        if max_price_filter is not None:
+            fallback = [
+                f for f in fallback
+                if f.get("price") is not None and f.get("price") <= max_price_filter
+            ]
         filtered = fallback
 
     # Debug logs
@@ -218,14 +246,13 @@ def retrieve_from_rag(query: str, filters: Dict, k: int = 20) -> List[Dict]:
 
     # Final strict price filter to guarantee correctness
     if "max_price" in filters:
-        try:
-            max_p = float(filters["max_price"])
+        if max_price_filter is None:
+            print(f"[DEBUG] Skipped max_price filter: could not parse value '{filters.get('max_price')}'")
+        else:
             before = len(filtered)
-            filtered = [f for f in filtered if f.get("price", 0) <= max_p]
+            filtered = [f for f in filtered if f.get("price") is not None and f.get("price") <= max_price_filter]
             after = len(filtered)
-            print(f"[DEBUG] Applied max_price filter {max_p}: reduced {before} → {after} results")
-        except Exception as e:
-            print(f"[DEBUG] Skipped price filter due to error: {e}")
+            print(f"[DEBUG] Applied max_price filter {max_price_filter}: reduced {before} → {after} results")
 
     return filtered
 

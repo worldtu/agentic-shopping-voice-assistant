@@ -11,8 +11,13 @@ langchain-huggingface>=0.0.1
 mcp>=0.9.0
 
 ## Speech Processing
-openai-whisper>=20231117  # ASR
-openai>=1.0.0  # For TTS (or use elevenlabs, azure-cognitiveservices-speech)
+# ASR (Speech-to-Text) - Local Whisper
+faster-whisper>=1.0.0  # Local ASR using optimized Whisper
+loguru>=0.7.0  # Logging for ASR module
+
+# TTS (Text-to-Speech) - ElevenLabs API
+aiohttp>=3.8.0  # For ElevenLabs HTTP API
+# openai>=1.0.0  # Alternative: OpenAI TTS (cheaper but lower quality)
 
 ## Data Processing
 pandas>=2.0.0

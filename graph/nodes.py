@@ -9,8 +9,45 @@ from graph.retriever.rag import retrieve_from_rag
 from graph.retriever.web import retrieve_from_web
 from graph.answerer import get_answerer_chain
 import logging
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
+
+PRICE_CHECK_KEYWORDS = [
+    "current price",
+    "latest price",
+    "most recent price",
+    "price right now",
+    "price now",
+    "price today",
+    "price currently",
+    "recent price",
+    "price update"
+]
+
+
+def _is_price_check_query(query: str) -> bool:
+    q = query.lower()
+    return any(keyword in q for keyword in PRICE_CHECK_KEYWORDS)
+
+
+def _enforce_availability_plan(state: GraphState, plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Force availability_check tasks to use live web search."""
+    if state.get("task") != "availability_check":
+        return plan
+
+    normalized_plan = dict(plan)
+    normalized_plan["sources"] = ["web_search"]
+
+    filters = dict(normalized_plan.get("filters") or {})
+    constraints = state.get("constraints") or {}
+
+    for key in ("min_price", "max_price", "material", "brand", "category"):
+        if key in constraints and constraints[key] is not None and key not in filters:
+            filters[key] = constraints[key]
+
+    normalized_plan["filters"] = filters
+    return normalized_plan
 
 
 # ============================================================
@@ -20,25 +57,27 @@ logger = logging.getLogger(__name__)
 def router_node(state: GraphState) -> GraphState:
     """
     Use router LLM to classify task + constraints.
-    If router LLM fails, fallback rules ensure tests pass:
-    - If query contains "now", "today", "current" → web search
-    - Otherwise → private_rag
+    Ensure price-check queries trigger availability_check so we hit live data.
     """
     query = state["query"]
+    price_check = _is_price_check_query(query)
 
     try:
         router_chain = get_router_chain()
         result = router_chain.invoke(query)
+        constraints = result.constraints.model_dump(exclude_none=True)
+        if price_check and "product" not in constraints and result.constraints.product is None:
+            constraints["product"] = query
 
-        state["task"] = result.task
-        state["constraints"] = result.constraints.model_dump(exclude_none=True)
+        state["task"] = "availability_check" if price_check else result.task
+        state["constraints"] = constraints
         state["safety_flags"] = result.safety_flags
 
         state["step_log"].append({
             "node": "router",
             "input": query,
             "output": {
-                "task": result.task,
+                "task": state["task"],
                 "constraints": state["constraints"],
                 "safety_flags": state["safety_flags"]
             },
@@ -50,13 +89,14 @@ def router_node(state: GraphState) -> GraphState:
         logger.error(f"Router error: {e}", exc_info=True)
 
         q = query.lower()
-        # ----------- Fallback rule for tests -----------
-        if any(x in q for x in ["now", "today", "current"]):
-            state["task"] = "web_search"
+        if price_check or any(x in q for x in ["now", "today", "current"]):
+            state["task"] = "availability_check"
         else:
             state["task"] = "product_search"
 
-        state["constraints"] = {}
+        state["constraints"] = state.get("constraints") or {}
+        if price_check and "product" not in state["constraints"]:
+            state["constraints"]["product"] = query
         state["safety_flags"] = []
 
         state["step_log"].append({
@@ -88,6 +128,7 @@ def planner_node(state: GraphState) -> GraphState:
             "constraints": state["constraints"]
         }
         plan = planner_chain.invoke(chain_input)
+        plan = _enforce_availability_plan(state, plan)
 
         state["plan"] = plan
 
@@ -115,6 +156,7 @@ def planner_node(state: GraphState) -> GraphState:
             "comparison_criteria": ["price", "rating"],
             "filters": {}
         }
+        plan = _enforce_availability_plan(state, plan)
         state["plan"] = plan
 
         state["step_log"].append({

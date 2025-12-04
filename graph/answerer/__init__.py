@@ -15,11 +15,27 @@ def format_answerer_input(state_dict: dict) -> dict:
     for i, doc in enumerate(docs, 1):
         docs_text += f"\n[DOC {i}]"
         docs_text += f"\nTitle: {doc.get('title', 'N/A')}"
-        docs_text += f"\nPrice: ${doc.get('price', 0):.2f}"
+        
+        # Handle price - can be None from web results
+        price = doc.get('price')
+        if price is not None:
+            docs_text += f"\nPrice: ${price:.2f}"
+        else:
+            docs_text += f"\nPrice: N/A"
+        
         docs_text += f"\nBrand: {doc.get('brand', 'N/A')}"
         docs_text += f"\nMaterial: {doc.get('material', 'N/A')}"
         docs_text += f"\nCategory: {doc.get('category', 'N/A')}"
-        docs_text += f"\nContent: {doc.get('content', '')[:300]}..."
+        
+        # Get content from either 'content' or 'snippet' field
+        content = doc.get('content') or doc.get('snippet', '')
+        if content:
+            docs_text += f"\nContent: {content[:300]}..."
+        
+        # Include URL if available (from web results)
+        if doc.get('url'):
+            docs_text += f"\nURL: {doc.get('url')}"
+        
         docs_text += f"\nDoc ID: {doc.get('doc_id', 'N/A')}"
         docs_text += "\n"
     

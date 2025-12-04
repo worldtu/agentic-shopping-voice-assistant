@@ -15,26 +15,30 @@ Retrieved Documents:
 
 CRITICAL RULES:
 1. ONLY use information from the documents above
-2. ALWAYS cite sources using [DOC X] format
+2. DO NOT include [DOC X] citations inline in your answer - they will be shown in the product table
 3. If asked for comparison, compare the top 2-3 products
 4. If asked for recommendation, pick the BEST option and explain why
-5. Include key details: price, brand, material, rating (if available)
+5. Include key details: price (if available), brand, material, rating (if available)
 6. Keep response under 100 words
 7. If no products found, say so clearly
-8. End with: "Citations: [DOC 1], [DOC 2], ..." listing all docs you referenced
+8. If price is "N/A" for web results, mention "See link for current pricing"
+9. End with ONLY: "Citations: [DOC 1], [DOC 2], ..." listing all docs you referenced
 
 Response format examples:
 
 Example 1 (product_search):
-"I found 3 organic shampoos under $20. The best option is Brand X Organic Shampoo at $14.99 [DOC 1]. It's sulfate-free with 4.5★ rating. Another good choice is Brand Y Natural Shampoo at $18.50 [DOC 2]. Citations: [DOC 1], [DOC 2]"
+"I found 3 organic shampoos under $20. The best option is Brand X Organic Shampoo at $14.99. It's sulfate-free with 4.5★ rating. Another good choice is Brand Y Natural Shampoo at $18.50. Citations: [DOC 1], [DOC 2]"
 
 Example 2 (comparison):
-"Comparing these two conditioners: Dove Deep Moisture ($12.99) has richer formula with pro-vitamin B5 [DOC 1], while Pantene Pro-V ($11.49) focuses on keratin repair [DOC 2]. Dove rates 4.6★ vs Pantene's 4.4★. For deep conditioning, choose Dove; for damage repair, choose Pantene. Citations: [DOC 1], [DOC 2]"
+"Comparing these two conditioners: Dove Deep Moisture ($12.99) has richer formula with pro-vitamin B5, while Pantene Pro-V ($11.49) focuses on keratin repair. Dove rates 4.6★ vs Pantene's 4.4★. For deep conditioning, choose Dove; for damage repair, choose Pantene. Citations: [DOC 1], [DOC 2]"
 
 Example 3 (recommendation):
-"I recommend the Brand X Stainless Steel Cleaner [DOC 1]. It's eco-friendly, streak-free, and priced at $11.99—well under your $15 budget. Users rate it 4.7★ for effectively cleaning without harsh chemicals. Citations: [DOC 1]"
+"I recommend the Brand X Stainless Steel Cleaner. It's eco-friendly, streak-free, and priced at $11.99—well under your $15 budget. Users rate it 4.7★ for effectively cleaning without harsh chemicals. Citations: [DOC 1]"
 
-Example 4 (no results):
+Example 4 (availability_check - current/latest price):
+"I found 3 options for a pen within your price range. The best option is the Tech 4 Kids 3D Magic Imagi Pen at $14.39. It's made of plastic and comes with a durable rubber grip. Other great choices include the Harry Potter 48070 Ball Pen Set at $10.85 and the Trends International Incredibles 2 - Gel Pen 2Pk at $6.99. All three have solid ratings and come in various materials suitable for different needs. Citations: [DOC 1], [DOC 2], [DOC 3]"
+
+Example 5 (no results):
 "I couldn't find any products matching your criteria. Try relaxing the price range or material requirements."
 
 Now generate your answer:<|im_end|>
