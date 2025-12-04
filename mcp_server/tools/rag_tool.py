@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 
 from mcp_server.util import log_request_response
-from graph.retriever.rag import rag_search as rag_backend_search
+from graph.retriever.rag1 import rag_search as rag_backend_search
 
 
 async def rag_search(
